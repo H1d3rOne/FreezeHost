@@ -16,6 +16,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 DISCORD_TOKEN = os.environ.get("FREEZEHOST_DISCORD_TOKEN", "").strip()
 TG_BOT_TOKEN  = os.environ.get("TG_BOT_TOKEN", "").strip()
 TG_CHAT_ID    = os.environ.get("TG_CHAT_ID", "").strip()
+WECOM_KEY     = os.environ.get("WECOM_WEBHOOK_KEY", "").strip()
 
 TIMEOUT        = 60_000
 SCREENSHOT_DIR = Path("screenshots")
@@ -139,6 +140,27 @@ def send_tg(caption: str, image_bytes: bytes | None = None):
             log_info("TG 推送成功" if resp.status == 200 else f"TG 推送失败: HTTP {resp.status}")
     except Exception as e:
         log_warn(f"TG 推送异常: {e}")
+
+
+def send_wecom(text: str):
+    if not WECOM_KEY:
+        log_warn("企业微信未配置，跳过推送")
+        return
+    try:
+        req = Request(
+            f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={WECOM_KEY}",
+            data=json.dumps({"msgtype": "text", "text": {"content": text}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+            if data.get("errcode") == 0:
+                log_info("企业微信推送成功")
+            else:
+                log_warn(f"企业微信推送失败: {data}")
+    except Exception as e:
+        log_warn(f"企业微信推送异常: {e}")
 
 
 def take_screenshot(page, name: str) -> bytes | None:
@@ -682,6 +704,7 @@ def run():
                 buf = take_screenshot(page, "no-servers")
                 tg_name = _RAW_EMAIL or "未知用户"
                 send_tg(f"用户：{tg_name}\n⚠️ 未发现服务器\n\nFreezeHost Auto Restart", buf)
+                send_wecom(f"用户：{tg_name}\n⚠️ 未发现服务器\n\nFreezeHost Auto Restart")
                 return
 
             # ── 逐台处理 ─────────────────────────────────
@@ -707,12 +730,14 @@ def run():
             log_info(f"TG 消息内容:\n{_mask(tg_msg)}")
 
             send_tg(tg_msg, final_img)
+            send_wecom(tg_msg)
             log_info("所有服务器处理完毕")
 
         except Exception as e:
             buf = take_screenshot(page, "fatal-error")
             tg_name = _RAW_EMAIL or "未知用户"
             send_tg(f"用户：{tg_name}\n❌ 异常: {e}\n\nFreezeHost Auto Restart", buf)
+            send_wecom(f"用户：{tg_name}\n❌ 异常: {e}\n\nFreezeHost Auto Restart")
             raise
         finally:
             browser.close()

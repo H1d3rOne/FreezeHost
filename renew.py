@@ -16,6 +16,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 DISCORD_TOKEN = os.environ.get("FREEZEHOST_DISCORD_TOKEN", "").strip()
 TG_BOT_TOKEN  = os.environ.get("TG_BOT_TOKEN", "").strip()
 TG_CHAT_ID    = os.environ.get("TG_CHAT_ID", "").strip()
+WECOM_KEY     = os.environ.get("WECOM_WEBHOOK_KEY", "").strip()
 
 TIMEOUT        = 60_000
 MAX_SITE_RETRIES = 3
@@ -159,6 +160,27 @@ def send_tg(caption: str, image_bytes: bytes | None = None):
             log_info("TG 推送成功" if resp.status == 200 else f"TG 推送失败: HTTP {resp.status}")
     except Exception as e:
         log_warn(f"TG 推送异常: {e}")
+
+
+def send_wecom(text: str):
+    if not WECOM_KEY:
+        log_warn("企业微信未配置，跳过推送")
+        return
+    try:
+        req = Request(
+            f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={WECOM_KEY}",
+            data=json.dumps({"msgtype": "text", "text": {"content": text}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+            if data.get("errcode") == 0:
+                log_info("企业微信推送成功")
+            else:
+                log_warn(f"企业微信推送失败: {data}")
+    except Exception as e:
+        log_warn(f"企业微信推送异常: {e}")
 
 def take_screenshot(page, name: str) -> bytes | None:
     try:
@@ -530,6 +552,7 @@ def run():
                     f"FreezeHost Auto Renew"
                 )
                 send_tg(msg, buf)
+                send_wecom(msg)
                 log_warn("站点宕机，本次跳过续期")
                 return   # Exit gracefully — not a script error
 
@@ -605,6 +628,7 @@ def run():
             if not server_ids:
                 buf = take_screenshot(page, "no-servers")
                 send_tg(f"用户：{display_name}\n⚠️ 未发现服务器\n\nFreezeHost Auto Renew", buf)
+                send_wecom(f"用户：{display_name}\n⚠️ 未发现服务器\n\nFreezeHost Auto Renew")
                 return
 
             # ── 逐台处理 ─────────────────────────────────
@@ -630,12 +654,16 @@ def run():
                     s += f" {r['detail']}"
                 lines.append(s)
 
-            send_tg("\n".join([f"用户：{display_name}", *lines, "", "FreezeHost Auto Renew"]), final_img)
+            tg_msg = "\n".join([f"用户：{display_name}", *lines, "", "FreezeHost Auto Renew"])
+            send_tg(tg_msg, final_img)
+            send_wecom(tg_msg)
             log_info("所有服务器处理完毕")
 
         except Exception as e:
             buf = take_screenshot(page, "fatal-error")
-            send_tg(f"用户：{display_name}\n❌ 异常: {e}\n\nFreezeHost Auto Renew", buf)
+            err_msg = f"用户：{display_name}\n❌ 异常: {e}\n\nFreezeHost Auto Renew"
+            send_tg(err_msg, buf)
+            send_wecom(err_msg)
             raise
         finally:
             browser.close()
