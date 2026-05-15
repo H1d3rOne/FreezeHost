@@ -22,11 +22,13 @@
 - 续期后计算下次运行时间（到期前 2 天），自动更新 Workflow 中的 Cron 表达式
 - WARP 代理保障网络连通
 - Telegram 通知推送续期结果（含合并截图）
+- 企业微信通知推送（与 Telegram 同步发送）
 
 ### 重启
 - 自动检测服务器电源状态（运行/关机/过渡状态）
 - 运行中 → 执行重启；关机 → 执行开机；过渡 → 等待稳定后操作
 - 重启/开机结果 Telegram 通知（含截图）
+- 企业微信通知推送（与 Telegram 同步发送）
 
 ## 配置 Secrets
 
@@ -42,6 +44,7 @@
 | `REPO_TOKEN` | ✅ （仅续期） | 具有 `repo` 和 `workflow` 权限的 PAT，用于自动更新 Cron |
 | `TG_BOT_TOKEN` | ❌ | Telegram Bot Token，用于推送通知 |
 | `TG_CHAT_ID` | ❌ | Telegram 接收消息的 Chat ID |
+| `WECOM_WEBHOOK_KEY` | ❌ | 企业微信机器人 Webhook Key，用于推送通知 |
 
 ### 获取 Discord Token
 
@@ -65,6 +68,12 @@
 
 1. [@BotFather](https://t.me/BotFather) 创建 Bot 获得 `TG_BOT_TOKEN`
 2. 向 Bot 发送任意消息，访问 `https://api.telegram.org/bot<TOKEN>/getUpdates` 获取 `chat.id` 作为 `TG_CHAT_ID`
+
+### 企业微信通知（可选）
+
+1. 在企业微信群聊中添加机器人，获取 Webhook 地址中的 Key
+2. Webhook 地址格式：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx`
+3. 将 `key=` 后的值填入 `WECOM_WEBHOOK_KEY`
 
 ## 使用方法
 
@@ -109,7 +118,7 @@ curl -X POST "https://api.github.com/repos/<用户名>/<仓库名>/actions/workf
 4. 扫描 Dashboard 下所有服务器，逐一检查剩余时间并执行续期
 5. 提取最小剩余天数，计算下次运行时间（到期前 2 天）
 6. 使用 `REPO_TOKEN` 自动更新对应 Cron 行并提交
-7. 通过 Telegram 发送结果截图
+7. 通过 Telegram / 企业微信发送结果截图
 
 ## 工作原理（重启）
 
@@ -120,7 +129,7 @@ curl -X POST "https://api.github.com/repos/<用户名>/<仓库名>/actions/workf
    - 运行中 → 执行重启
    - 关机 → 执行开机
    - 过渡中 → 等待稳定后按上述规则处理
-5. 将操作结果通过 Telegram 推送（含截图）
+5. 将操作结果通过 Telegram / 企业微信推送（含截图）
 
 ## 注意事项
 
@@ -130,6 +139,12 @@ curl -X POST "https://api.github.com/repos/<用户名>/<仓库名>/actions/workf
 - 某 Token 下若无服务器，会收到“无服务器”通知并跳过
 - 站点宕机时续期脚本会自动重试 3 次，若持续失败将推送通知
 - 敏感信息（Token、邮箱、服务器 ID）在日志与截图中已脱敏
+
+## 与原项目的差异
+
+- 新增企业微信 Webhook 通知，与 Telegram 同步推送
+- 通知消息中显示 FreezeHost 用户名（原项目显示邮箱）
+- 成功消息添加 ✅ 标识
 
 ---
 
