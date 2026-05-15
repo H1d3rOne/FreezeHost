@@ -125,6 +125,34 @@ def extract_email(page) -> str | None:
         log_warn(f"获取邮箱失败: {e}")
         return None
 
+def extract_username(page) -> str | None:
+    try:
+        log_info("打开 Settings 页面获取用户名...")
+        page.goto(f"{BASE_URL}/settings", wait_until="networkidle")
+        page.wait_for_timeout(3000)
+        username = page.evaluate(r"""() => {
+            const planTags = document.querySelectorAll('p');
+            for (const p of planTags) {
+                const text = p.textContent.trim().toLowerCase();
+                if (text.includes('plan')) {
+                    const h2 = p.previousElementSibling;
+                    if (h2 && h2.tagName === 'H2') {
+                        return h2.textContent.trim();
+                    }
+                }
+            }
+            return null;
+        }""")
+        if username:
+            _register_sensitive(username)
+            log_info(f"用户名获取成功: {username}")
+            return username
+        log_warn("Settings 页面未找到用户名")
+        return None
+    except Exception as e:
+        log_warn(f"获取用户名失败: {e}")
+        return None
+
 def send_tg(caption: str, image_bytes: bytes | None = None):
     if not TG_CHAT_ID or not TG_BOT_TOKEN:
         log_warn("TG 未配置，跳过推送")
@@ -587,19 +615,6 @@ def run():
 
             log_info("Token 注入成功")
 
-            display_name = page.evaluate("""async () => {
-                try {
-                    const raw = localStorage.getItem('token') || '""';
-                    const t = raw.replace(/"/g, '');
-                    const res = await fetch('/api/v9/users/@me', { headers: { Authorization: t } });
-                    const data = await res.json();
-                    return data.username || null;
-                } catch { return null; }
-            }""") or display_name
-            if display_name != "未知用户":
-                _register_sensitive(display_name)
-            log_info(f"Discord 用户名: {display_name}")
-
             # ── OAuth ─────────────────────────────────────
             try:
                 page.wait_for_url(re.compile(r"discord\.com/oauth2/authorize"), timeout=6000)
@@ -628,6 +643,12 @@ def run():
                 raise RuntimeError("未到达 Dashboard")
 
             log_info("登录成功")
+
+            username = extract_username(page)
+            if username:
+                display_name = username
+            else:
+                log_warn("用户名获取失败，将显示「未知用户」")
 
             # ── 发现服务器 ────────────────────────────────
             server_ids = discover_server_ids(page)
