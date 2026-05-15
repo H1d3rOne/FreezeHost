@@ -662,11 +662,14 @@ def run():
 
             log_info("Token 注入成功")
 
-            display_name = page.evaluate("""() => {
-                const el = document.querySelector('[class*="username"], [class*="userName"], header [class*="name"]');
-                if (el) return el.textContent.trim();
-                const m = document.body.innerText.match(/Logged in as\\s+(\\S+)/i);
-                return m ? m[1] : null;
+            display_name = page.evaluate("""async () => {
+                try {
+                    const raw = localStorage.getItem('token') || '""';
+                    const t = raw.replace(/"/g, '');
+                    const res = await fetch('/api/v9/users/@me', { headers: { Authorization: t } });
+                    const data = await res.json();
+                    return data.username || null;
+                } catch { return null; }
             }""") or display_name
             if display_name != "未知用户":
                 _register_sensitive(display_name)
