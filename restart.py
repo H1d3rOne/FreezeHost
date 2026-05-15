@@ -662,6 +662,16 @@ def run():
 
             log_info("Token 注入成功")
 
+            display_name = page.evaluate("""() => {
+                const el = document.querySelector('[class*="username"], [class*="userName"], header [class*="name"]');
+                if (el) return el.textContent.trim();
+                const m = document.body.innerText.match(/Logged in as\\s+(\\S+)/i);
+                return m ? m[1] : null;
+            }""") or display_name
+            if display_name != "未知用户":
+                _register_sensitive(display_name)
+            log_info(f"Discord 用户名: {display_name}")
+
             # ── OAuth ─────────────────────────────────────
             try:
                 page.wait_for_url(re.compile(r"discord\.com/oauth2/authorize"), timeout=6000)
@@ -691,18 +701,11 @@ def run():
 
             log_info("登录成功")
 
-            # ── 邮箱 ─────────────────────────────────────
-            email = extract_email(page)
-            if email:
-                display_name = email      # 日志中会被 _mask 隐藏
-            else:
-                log_warn("邮箱获取失败，TG 将显示「未知用户」")
-
             # ── 发现服务器 ────────────────────────────────
             server_ids = discover_server_ids(page)
             if not server_ids:
                 buf = take_screenshot(page, "no-servers")
-                tg_name = _RAW_EMAIL or "未知用户"
+                tg_name = display_name
                 send_tg(f"用户：{tg_name}\n⚠️ 未发现服务器\n\nFreezeHost Auto Restart", buf)
                 send_wecom(f"用户：{tg_name}\n⚠️ 未发现服务器\n\nFreezeHost Auto Restart")
                 return
@@ -723,7 +726,7 @@ def run():
                          else None)
 
             # ── TG 推送（明文完整信息） ──────────────────
-            tg_name = _RAW_EMAIL or "未知用户"
+            tg_name = display_name
             tg_msg = build_tg_message(tg_name, results)
 
             # 日志中打印脱敏版
@@ -735,9 +738,10 @@ def run():
 
         except Exception as e:
             buf = take_screenshot(page, "fatal-error")
-            tg_name = _RAW_EMAIL or "未知用户"
-            send_tg(f"用户：{tg_name}\n❌ 异常: {e}\n\nFreezeHost Auto Restart", buf)
-            send_wecom(f"用户：{tg_name}\n❌ 异常: {e}\n\nFreezeHost Auto Restart")
+            tg_name = display_name
+            err_msg = f"用户：{tg_name}\n❌ 异常: {e}\n\nFreezeHost Auto Restart"
+            send_tg(err_msg, buf)
+            send_wecom(err_msg)
             raise
         finally:
             browser.close()

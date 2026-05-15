@@ -587,6 +587,16 @@ def run():
 
             log_info("Token 注入成功")
 
+            display_name = page.evaluate("""() => {
+                const el = document.querySelector('[class*="username'], [class*="userName"], header [class*="name"]');
+                if (el) return el.textContent.trim();
+                const m = document.body.innerText.match(/Logged in as\\s+(\\S+)/i);
+                return m ? m[1] : null;
+            }""") or display_name
+            if display_name != "未知用户":
+                _register_sensitive(display_name)
+            log_info(f"Discord 用户名: {display_name}")
+
             # ── OAuth ─────────────────────────────────────
             try:
                 page.wait_for_url(re.compile(r"discord\.com/oauth2/authorize"), timeout=6000)
@@ -615,13 +625,6 @@ def run():
                 raise RuntimeError("未到达 Dashboard")
 
             log_info("登录成功")
-
-            # ── 邮箱（唯一显示名） ───────────────────────
-            email = extract_email(page)
-            if email:
-                display_name = email
-            else:
-                log_warn("邮箱获取失败，TG 将显示「未知用户」")
 
             # ── 发现服务器 ────────────────────────────────
             server_ids = discover_server_ids(page)
