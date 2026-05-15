@@ -654,7 +654,7 @@ def run():
                     s += f" {r['detail']}"
                 lines.append(s)
 
-            tg_msg = "\n".join([f"用户：{display_name}", *lines, "", "FreezeHost Auto Renew"])
+            tg_msg = "\n".join([f"用户：{display_name}", *lines, "", "✅ FreezeHost Auto Renew"])
             send_tg(tg_msg, final_img)
             send_wecom(tg_msg)
             log_info("所有服务器处理完毕")

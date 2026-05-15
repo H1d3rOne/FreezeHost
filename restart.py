@@ -598,7 +598,7 @@ def build_tg_message(display_name: str, results: list[dict]) -> str:
         lines.append(line)
 
     lines.append("")
-    lines.append("FreezeHost Auto Restart")
+    lines.append("✅ FreezeHost Auto Restart")
     return "\n".join(lines)
 
 
